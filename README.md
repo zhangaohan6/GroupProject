@@ -13,34 +13,36 @@ pip install -r requirements.txt
 Download iNat2021 mini (`train_mini`, `val` + their `.json`) from
 https://github.com/visipedia/inat_comp/tree/master/2021 , then:
 ```bash
-python src/build_subset.py --inat_root /path/to/inat2021 --out data/subset500 \
+python src/build_subset.py --inat_root /path/to/inat2021 --out data \
     --n_classes 500 --n_train 40 --n_val 10 --n_test 10 --seed 42
 ```
-Produces `data/subset500/{train,val,test}/<class>/...` + `manifest.json` (reproducible).
+Produces `data/{train,val,test}/<class>/...` + `manifest.json` (reproducible).
 
 ## 2. Deep pipeline (pretrained + from-scratch, required)
 ```bash
-python src/deep_cnn.py --data data/subset500 --arch resnet50 --pretrained \
-    --epochs 30 --out results/resnet50_pretrained
-python src/deep_cnn.py --data data/subset500 --arch resnet50 \
-    --epochs 60 --out results/resnet50_scratch
+python src/deep_cnn.py --data data --arch resnet50 --pretrained \
+    --epochs 30 --run_id resnet50_pretrained_42 --out results
+python src/deep_cnn.py --data data --arch resnet50 \
+    --epochs 60 --run_id resnet50_scratch_42 --out results
 ```
 Ablations: `--no_aug` (augmentation off), `--arch resnet18|efficientnet_b0` (architecture).
 
 ## 3. Traditional pipeline
 ```bash
-python src/traditional_bovw.py --data data/subset500 --k 512 --out results/bovw
+python src/traditional_bovw.py --data data --k 512 --run_id bovw_sift512_42 --out results
 ```
 
-## 4. Evaluate (top-1/5, macro-F1, confusion matrix, timing)
+## 4. Aggregate results + leakage check
+Each runner writes `results/<run_id>/result.json` via `common.save_result`. Then:
 ```bash
-python src/evaluate.py --data data/subset500 --ckpt results/resnet50_pretrained/best.pt
+python src/evaluate.py --results results            # comparison table across runs
+python src/evaluate.py --data data --leakage_check  # assert train/val/test disjoint
 ```
 
 ## 5. Advanced studies (aim for 28+)
 ```bash
-python src/robustness.py --data data/subset500 --ckpt results/resnet50_pretrained/best.pt  # #2
-python src/gradcam.py    --data data/subset500 --ckpt results/resnet50_pretrained/best.pt  # #1
+python src/robustness.py --data data --ckpt results/resnet50_pretrained_42/best.pt  # #2
+python src/gradcam.py    --data data --ckpt results/resnet50_pretrained_42/best.pt  # #1
 ```
 
 ## Colab

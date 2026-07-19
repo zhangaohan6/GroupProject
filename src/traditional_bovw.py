@@ -1,93 +1,87 @@
-"""Traditional pipeline: Bag-of-Visual-Words (SIFT) + SVM.
+"""[B / ADVANCED-ready] Traditional pipeline as common.Method: BoVW(SIFT)+LinearSVC.
 
-A genuinely different (non-deep) baseline. Also supports HOG/LBP by swapping
-the descriptor (see extract_features). Reports top-1 + macro-F1 + timing.
+Implements predict_proba(df, image_transform) so it plugs into evaluate + robustness
+exactly like the deep methods. Expected top-1 is low (3-10%) on 500 classes — that is a
+valid finding (handcrafted features plateau on fine-grained), not a failure.
 
-  python traditional_bovw.py --data ../data/subset500 --k 512 --out ../results/bovw
-Needs: opencv-python, scikit-learn, scikit-image
+  python traditional_bovw.py --data ../data --k 512 --run_id bovw_sift512_42 --out ../results
+Needs opencv-python.
 """
-import argparse, glob, json, os, time
-import numpy as np
-import cv2
+import argparse, json, os, time
+import numpy as np, cv2
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from scipy.special import softmax
+from common import Method, N_CLASSES, read_manifest, load_classes, save_result, load_image
 
 
-def list_split(root, split):
-    items = []
-    for cls in sorted(os.listdir(f"{root}/{split}")):
-        for p in glob.glob(f"{root}/{split}/{cls}/*"):
-            items.append((p, cls))
-    return items
+def to_gray(img_pil, image_transform, size=256):
+    if image_transform is not None:
+        img_pil = image_transform(img_pil)
+    g = cv2.cvtColor(np.asarray(img_pil), cv2.COLOR_RGB2GRAY)
+    return cv2.resize(g, (size, size))
 
 
-def sift_descriptors(path, sift, size=256):
-    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        return None
-    img = cv2.resize(img, (size, size))
-    _, des = sift.detectAndCompute(img, None)
-    return des  # (n_kp, 128) or None
+class BoVWMethod(Method):
+    def __init__(self, data_root, k=512):
+        self.name = f"bovw_sift{k}"
+        self.root, self.k = data_root, k
+        self.sift = cv2.SIFT_create()
 
+    def _desc(self, path, image_transform=None):
+        g = to_gray(load_image(os.path.join(self.root, path)), image_transform)
+        _, d = self.sift.detectAndCompute(g, None)
+        return d
 
-def build_vocab(train, sift, k, max_imgs=2000):
-    rng = np.random.RandomState(0)
-    sample = [train[i] for i in rng.choice(len(train), min(max_imgs, len(train)), replace=False)]
-    alld = [d for p, _ in sample if (d := sift_descriptors(p, sift)) is not None]
-    alld = np.vstack(alld)
-    print(f"KMeans on {alld.shape[0]} descriptors -> {k} words")
-    km = MiniBatchKMeans(n_clusters=k, random_state=0, batch_size=10000, n_init=3)
-    km.fit(alld)
-    return km
+    def _hist(self, path, image_transform=None):
+        d = self._desc(path, image_transform)
+        h = np.zeros(self.k, np.float32)
+        if d is not None:
+            for w in self.km.predict(d):
+                h[w] += 1
+            h /= (h.sum() + 1e-6)
+        return h
 
+    def fit(self, train_rows, val_rows=None, max_vocab_imgs=2000):
+        rng = np.random.RandomState(0)
+        sub = [train_rows[i] for i in rng.choice(len(train_rows),
+               min(max_vocab_imgs, len(train_rows)), replace=False)]
+        alld = [d for r in sub if (d := self._desc(r["path"])) is not None]
+        self.km = MiniBatchKMeans(self.k, random_state=0, batch_size=10000, n_init=3)
+        self.km.fit(np.vstack(alld))
+        X = np.stack([self._hist(r["path"]) for r in train_rows])
+        y = np.array([r["class_id"] for r in train_rows])
+        self.scaler = StandardScaler().fit(X)
+        self.clf = LinearSVC(C=1.0, max_iter=5000).fit(self.scaler.transform(X), y)
+        return self
 
-def bovw_hist(path, sift, km, k):
-    des = sift_descriptors(path, sift)
-    h = np.zeros(k, np.float32)
-    if des is not None:
-        for w in km.predict(des):
-            h[w] += 1
-        h /= (h.sum() + 1e-6)
-    return h
-
-
-def featurize(items, sift, km, k):
-    return np.stack([bovw_hist(p, sift, km, k) for p, _ in items]), \
-           np.array([c for _, c in items])
+    def predict_proba(self, df, image_transform=None):
+        X = np.stack([self._hist(r["path"], image_transform) for r in df])
+        dec = self.clf.decision_function(self.scaler.transform(X))  # (N, seen_classes)
+        # map to full 500-col space (classes seen by clf may be < 500)
+        full = np.full((len(df), N_CLASSES), -1e9, np.float32)
+        full[:, self.clf.classes_] = dec
+        return softmax(full, axis=1)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", required=True)
-    ap.add_argument("--k", type=int, default=512, help="visual-word vocab size")
-    ap.add_argument("--out", default="../results/bovw")
+    ap.add_argument("--k", type=int, default=512)
+    ap.add_argument("--run_id", required=True)
+    ap.add_argument("--out", default="../results")
     args = ap.parse_args()
-    os.makedirs(args.out, exist_ok=True)
-    sift = cv2.SIFT_create()
+    names = [c["name"] for c in load_classes(os.path.join(args.data, "classes_500.json"))["classes"]]
+    train = read_manifest(os.path.join(args.data, "manifests", "train.csv"))
+    test = read_manifest(os.path.join(args.data, "manifests", "test.csv"))
 
-    train = list_split(args.data, "train")
-    test = list_split(args.data, "test")
-    t0 = time.time()
-    km = build_vocab(train, sift, args.k)
-    Xtr, ytr = featurize(train, sift, km, args.k)
-    scaler = StandardScaler().fit(Xtr)
-    clf = LinearSVC(C=1.0, max_iter=5000).fit(scaler.transform(Xtr), ytr)
-    train_secs = time.time() - t0
-
-    t1 = time.time()
-    Xte, yte = featurize(test, sift, km, args.k)
-    pred = clf.predict(scaler.transform(Xte))
-    test_secs = time.time() - t1
-
-    top1 = accuracy_score(yte, pred)
-    _, _, f1, _ = precision_recall_fscore_support(yte, pred, average="macro", zero_division=0)
-    res = {"method": f"BoVW-SIFT-{args.k}+LinearSVC", "top1": top1, "macro_f1": f1,
-           "train_seconds": train_secs, "test_seconds": test_secs}
-    print(json.dumps(res, indent=2))
-    with open(f"{args.out}/eval.json", "w") as f:
-        json.dump(res, f, indent=2)
+    m = BoVWMethod(args.data, args.k)
+    t0 = time.time(); m.fit(train); train_s = time.time() - t0
+    t1 = time.time(); probs = m.predict_proba(test); test_s = time.time() - t1
+    y = [r["class_id"] for r in test]
+    res = save_result(args.out, args.run_id, m.name, y, probs, train_s, test_s, names)
+    print(json.dumps({k: res[k] for k in ("top1", "top5", "macro_f1")}, indent=2))
 
 
 if __name__ == "__main__":

@@ -1,38 +1,34 @@
-"""[ADVANCED #1] Grad-CAM: which regions drive the CNN's prediction?
+"""[E / ADVANCED #1] Grad-CAM — manifest + common.load_image based.
 
-Overlays class-activation heatmaps to show whether the model attends to the
-organism vs background. Compare correct vs wrong, and confusable species pairs.
+Overlays class-activation heatmaps: organism vs background, correct vs wrong,
+confusable species pairs. Every figure must get an interpretation in the report.
 
-  python gradcam.py --data ../data/subset500 --ckpt ../results/resnet50_pretrained/best.pt \
-      --n 24 --out ../results/gradcam
+  python gradcam.py --data ../data --ckpt ../results/resnet50_pretrained_42/best.pt \
+      --arch resnet50 --n 24 --out ../results/gradcam
 """
 import argparse, os
 import numpy as np, torch, torch.nn.functional as F
-from PIL import Image
 import matplotlib.pyplot as plt
-from deep_cnn import build_model
-from dataset import build_transforms, IMAGENET_MEAN, IMAGENET_STD
-from torchvision import datasets
+from common import read_manifest, load_classes, load_image
+from dataset import tensor_tf, IMAGENET_MEAN, IMAGENET_STD
+from deep_cnn import DeepMethod
 
 
 class GradCAM:
-    def __init__(self, model, target_layer):
-        self.model = model.eval(); self.acts = None; self.grads = None
-        target_layer.register_forward_hook(lambda m, i, o: setattr(self, "acts", o.detach()))
-        target_layer.register_full_backward_hook(
-            lambda m, gi, go: setattr(self, "grads", go[0].detach()))
+    def __init__(self, model, layer):
+        self.model = model.eval(); self.a = None; self.g = None
+        layer.register_forward_hook(lambda m, i, o: setattr(self, "a", o.detach()))
+        layer.register_full_backward_hook(lambda m, gi, go: setattr(self, "g", go[0].detach()))
 
     def __call__(self, x, cls=None):
         out = self.model(x)
         cls = out.argmax(1) if cls is None else cls
-        self.model.zero_grad()
-        out.gather(1, cls.view(-1, 1)).sum().backward()
-        w = self.grads.mean(dim=(2, 3), keepdim=True)         # GAP over gradients
-        cam = F.relu((w * self.acts).sum(1))                  # weighted sum of feature maps
-        cam = F.interpolate(cam.unsqueeze(1), x.shape[-2:], mode="bilinear", align_corners=False)
-        cam = cam.squeeze(1)
+        self.model.zero_grad(); out.gather(1, cls.view(-1, 1)).sum().backward()
+        w = self.g.mean((2, 3), keepdim=True)
+        cam = F.relu((w * self.a).sum(1, keepdim=True))
+        cam = F.interpolate(cam, x.shape[-2:], mode="bilinear", align_corners=False).squeeze(1)
         cam = (cam - cam.amin((1, 2), keepdim=True)) / (cam.amax((1, 2), keepdim=True) + 1e-6)
-        return cam.cpu().numpy(), cls.cpu().numpy(), out.softmax(1).detach().cpu().numpy()
+        return cam.cpu().numpy(), cls.cpu().numpy()
 
 
 def denorm(t):
@@ -50,31 +46,30 @@ def main():
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    ck = torch.load(args.ckpt, map_location=device); classes = ck["classes"]
-    model = build_model(args.arch, len(classes), pretrained=False).to(device)
-    model.load_state_dict(ck["model"])
-    target = model.layer4[-1] if args.arch.startswith("resnet") else model.features[-1]
-    cam_fn = GradCAM(model, target)
+    m = DeepMethod(args.arch, pretrained=False)
+    ck = torch.load(args.ckpt, map_location=m.device); m.model.load_state_dict(ck["model"])
+    target = m.model.layer4[-1] if args.arch.startswith("resnet") else m.model.features[-1]
+    cam = GradCAM(m.model, target)
 
-    tf = build_transforms(train=False)
-    ds = datasets.ImageFolder(f"{args.data}/test", transform=tf)
-    idxs = np.random.RandomState(0).choice(len(ds), args.n, replace=False)
+    names = [c["name"] for c in load_classes(os.path.join(args.data, "classes_500.json"))["classes"]]
+    rows = read_manifest(os.path.join(args.data, "manifests", "test.csv"))
+    idx = np.random.RandomState(0).choice(len(rows), args.n, replace=False)
+    tf = tensor_tf(224)
 
-    cols = 4; rows = (args.n + cols - 1) // cols
-    plt.figure(figsize=(cols * 3, rows * 3))
-    for k, i in enumerate(idxs):
-        x, y = ds[i]; x = x.unsqueeze(0).to(device)
-        cam, pred, prob = cam_fn(x)
-        img = denorm(x[0].cpu())
-        plt.subplot(rows, cols, k + 1)
-        plt.imshow(img); plt.imshow(cam[0], cmap="jet", alpha=0.45)
-        ok = "OK" if pred[0] == y else "WRONG"
-        plt.title(f"gt{classes[y]} pr{classes[pred[0]]} {ok}", fontsize=7)
+    cols = 4; r = (args.n + cols - 1) // cols
+    plt.figure(figsize=(cols * 3, r * 3))
+    for k, i in enumerate(idx):
+        row = rows[i]
+        x = tf(load_image(os.path.join(args.data, row["path"]))).unsqueeze(0).to(m.device)
+        heat, pred = cam(x)
+        plt.subplot(r, cols, k + 1)
+        plt.imshow(denorm(x[0].cpu())); plt.imshow(heat[0], cmap="jet", alpha=0.45)
+        ok = "OK" if pred[0] == row["class_id"] else "WRONG"
+        plt.title(f"gt:{names[row['class_id']][:12]} pr:{names[pred[0]][:12]} {ok}", fontsize=6)
         plt.axis("off")
     plt.tight_layout(); plt.savefig(f"{args.out}/gradcam_grid.png", dpi=150)
     print("Saved ->", f"{args.out}/gradcam_grid.png",
-          "\nDiscuss: does the heatmap land on the organism or the background?")
+          "\nInterpret: does the heatmap land on the organism or the background?")
 
 
 if __name__ == "__main__":

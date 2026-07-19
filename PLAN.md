@@ -1,3 +1,7 @@
+> ⚠️ **本文件已被 `docs/PROJECT_PLAN.md` 取代为主计划**(5 人分工 + 契约驱动)。
+> 技术契约以 `docs/CONTRACTS.md` 为准;启动清单见 `docs/M0_KICKOFF.md`。
+> 下面保留为快速索引。
+
 # COMP9517 26T2 · Group Project — 作战计划(单一事实来源)
 
 > 每次只更这一份。改了什么在底部「进度日志」记一行。

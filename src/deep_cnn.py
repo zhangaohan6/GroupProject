@@ -1,18 +1,17 @@
-"""Deep pipeline: train a CNN either from scratch or from ImageNet-pretrained weights.
+"""[C/D] Deep pipeline implementing common.Method. Trains scratch or pretrained,
+logs train/val curves, checkpoints, then evaluates test via predict_proba + save_result.
 
-Logs train/val loss & acc each epoch (for the required training curves) and saves
-checkpoints (weights + optimizer) so training is resumable.
-
-Example:
-  python deep_cnn.py --data ../data/subset500 --arch resnet50 --pretrained \
-      --epochs 30 --out ../results/resnet50_pretrained
-  python deep_cnn.py --data ../data/subset500 --arch resnet50 \
-      --epochs 60 --out ../results/resnet50_scratch     # from scratch
+  python deep_cnn.py --data ../data --arch resnet50 --pretrained --epochs 30 \
+      --run_id resnet50_pretrained_42 --out ../results
+  python deep_cnn.py --data ../data --arch resnet50 --epochs 60 \
+      --run_id resnet50_scratch_42 --out ../results          # from scratch
+Ablations: --no_aug  (augmentation off);  --arch resnet18|efficientnet_b0
 """
 import argparse, json, os, time
-import torch, torch.nn as nn
+import numpy as np, torch, torch.nn as nn
 from torchvision import models
-from dataset import get_loaders
+from common import Method, N_CLASSES, read_manifest, load_classes, save_result
+from dataset import loader_from_manifest, ManifestDS, tensor_tf
 
 ARCHS = {
     "resnet18": (models.resnet18, models.ResNet18_Weights.IMAGENET1K_V1),
@@ -21,31 +20,74 @@ ARCHS = {
 }
 
 
-def build_model(arch, n_classes, pretrained):
-    ctor, weights = ARCHS[arch]
-    model = ctor(weights=weights if pretrained else None)
+def build_backbone(arch, n_classes, pretrained):
+    ctor, w = ARCHS[arch]
+    m = ctor(weights=w if pretrained else None)
     if arch.startswith("resnet"):
-        model.fc = nn.Linear(model.fc.in_features, n_classes)
-    else:  # efficientnet
-        model.classifier[1] = nn.Linear(model.classifier[1].in_features, n_classes)
-    return model
+        m.fc = nn.Linear(m.fc.in_features, n_classes)
+    else:
+        m.classifier[1] = nn.Linear(m.classifier[1].in_features, n_classes)
+    return m
 
 
-def run_epoch(model, loader, device, criterion, optimizer=None):
-    train = optimizer is not None
-    model.train(train)
-    total, correct, loss_sum = 0, 0, 0.0
-    for x, y in loader:
-        x, y = x.to(device), y.to(device)
-        with torch.set_grad_enabled(train):
-            out = model(x)
-            loss = criterion(out, y)
-            if train:
-                optimizer.zero_grad(); loss.backward(); optimizer.step()
-        loss_sum += loss.item() * x.size(0)
-        correct += (out.argmax(1) == y).sum().item()
-        total += x.size(0)
-    return loss_sum / total, correct / total
+class DeepMethod(Method):
+    def __init__(self, arch="resnet50", pretrained=True, img=224, device=None):
+        self.name = f"{arch}_{'pretrained' if pretrained else 'scratch'}"
+        self.arch, self.img = arch, img
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = build_backbone(arch, N_CLASSES, pretrained).to(self.device)
+
+    def fit(self, train_rows, val_rows, data_root, epochs=30, lr=1e-3, bs=64,
+            augment=True, out=None, resume=""):
+        crit = nn.CrossEntropyLoss()
+        opt = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, epochs)
+        tr, _ = loader_from_manifest(data_root, "train", self.img, bs, train=True, augment=augment)
+        va, _ = loader_from_manifest(data_root, "val", self.img, bs)
+        start, hist, best, t0 = 0, [], 0.0, time.time()
+        if resume and os.path.exists(resume):
+            ck = torch.load(resume, map_location=self.device)
+            self.model.load_state_dict(ck["model"]); opt.load_state_dict(ck["opt"])
+            start, hist, best = ck["epoch"] + 1, ck["history"], ck["best"]
+        for ep in range(start, epochs):
+            trl, tra = self._epoch(tr, crit, opt)
+            val, vaa = self._epoch(va, crit)
+            sched.step()
+            hist.append({"epoch": ep, "train_loss": trl, "train_acc": tra,
+                         "val_loss": val, "val_acc": vaa})
+            print(f"ep{ep:02d} train {trl:.3f}/{tra:.3f} val {val:.3f}/{vaa:.3f}")
+            if out:
+                ck = {"model": self.model.state_dict(), "opt": opt.state_dict(),
+                      "epoch": ep, "history": hist, "best": best, "arch": self.arch}
+                torch.save(ck, os.path.join(out, "last.pt"))
+                if vaa > best:
+                    best = vaa; torch.save(ck, os.path.join(out, "best.pt"))
+        self.train_seconds = time.time() - t0
+        self.history = hist
+        return self
+
+    def _epoch(self, loader, crit, opt=None):
+        train = opt is not None
+        self.model.train(train)
+        tot = corr = 0; ls = 0.0
+        for x, y in loader:
+            x, y = x.to(self.device), y.to(self.device)
+            with torch.set_grad_enabled(train):
+                o = self.model(x); loss = crit(o, y)
+                if train:
+                    opt.zero_grad(); loss.backward(); opt.step()
+            ls += loss.item() * x.size(0); corr += (o.argmax(1) == y).sum().item(); tot += x.size(0)
+        return ls / tot, corr / tot
+
+    @torch.no_grad()
+    def predict_proba(self, df, image_transform=None, data_root=".", bs=128):
+        self.model.eval()
+        ds = ManifestDS(df, data_root, tensor_tf(self.img), image_transform)
+        dl = torch.utils.data.DataLoader(ds, batch_size=bs, num_workers=4)
+        out = []
+        for x, _ in dl:
+            out.append(self.model(x.to(self.device)).softmax(1).cpu().numpy())
+        return np.concatenate(out)
 
 
 def main():
@@ -56,50 +98,33 @@ def main():
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--bs", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
-    ap.add_argument("--img", type=int, default=224)
-    ap.add_argument("--no_aug", action="store_true", help="ablation: turn off augmentation")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--no_aug", action="store_true")
+    ap.add_argument("--run_id", required=True)
+    ap.add_argument("--out", default="../results")
     ap.add_argument("--resume", default="")
     args = ap.parse_args()
 
-    os.makedirs(args.out, exist_ok=True)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    loaders, classes = get_loaders(args.data, args.img, args.bs, augment=not args.no_aug)
-    model = build_model(args.arch, len(classes), args.pretrained).to(device)
+    run_dir = os.path.join(args.out, args.run_id); os.makedirs(run_dir, exist_ok=True)
+    classes = load_classes(os.path.join(args.data, "classes_500.json"))
+    names = [c["name"] for c in classes["classes"]]
+    train_rows = read_manifest(os.path.join(args.data, "manifests", "train.csv"))
+    val_rows = read_manifest(os.path.join(args.data, "manifests", "val.csv"))
+    test_rows = read_manifest(os.path.join(args.data, "manifests", "test.csv"))
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs)
-
-    start_ep, history, best = 0, [], 0.0
-    if args.resume and os.path.exists(args.resume):
-        ck = torch.load(args.resume, map_location=device)
-        model.load_state_dict(ck["model"]); optimizer.load_state_dict(ck["opt"])
-        start_ep, history, best = ck["epoch"] + 1, ck["history"], ck["best"]
-        print(f"Resumed from epoch {start_ep}")
+    m = DeepMethod(args.arch, args.pretrained)
+    m.fit(train_rows, val_rows, args.data, epochs=args.epochs, lr=args.lr,
+          bs=args.bs, augment=not args.no_aug, out=run_dir, resume=args.resume)
+    with open(os.path.join(run_dir, "history.json"), "w") as f:
+        json.dump({"history": m.history, "train_seconds": m.train_seconds}, f, indent=2)
 
     t0 = time.time()
-    for ep in range(start_ep, args.epochs):
-        tr_loss, tr_acc = run_epoch(model, loaders["train"], device, criterion, optimizer)
-        va_loss, va_acc = run_epoch(model, loaders["val"], device, criterion)
-        scheduler.step()
-        history.append({"epoch": ep, "train_loss": tr_loss, "train_acc": tr_acc,
-                        "val_loss": va_loss, "val_acc": va_acc})
-        print(f"ep{ep:02d} train {tr_loss:.3f}/{tr_acc:.3f}  val {va_loss:.3f}/{va_acc:.3f}")
-        ck = {"model": model.state_dict(), "opt": optimizer.state_dict(),
-              "epoch": ep, "history": history, "best": best, "classes": classes}
-        torch.save(ck, os.path.join(args.out, "last.pt"))
-        if va_acc > best:
-            best = va_acc; torch.save(ck, os.path.join(args.out, "best.pt"))
-
-    train_seconds = time.time() - t0
-    with open(os.path.join(args.out, "history.json"), "w") as f:
-        json.dump({"history": history, "train_seconds": train_seconds,
-                   "arch": args.arch, "pretrained": args.pretrained,
-                   "augment": not args.no_aug}, f, indent=2)
-    print(f"Done. best val acc {best:.3f} in {train_seconds:.0f}s. -> {args.out}")
-    print("Next: python evaluate.py --data", args.data, "--ckpt",
-          os.path.join(args.out, "best.pt"))
+    probs = m.predict_proba(test_rows, data_root=args.data)
+    test_seconds = time.time() - t0
+    y = [r["class_id"] for r in test_rows]
+    res = save_result(args.out, args.run_id, m.name, y, probs,
+                      m.train_seconds, test_seconds, names)
+    print(json.dumps({k: res[k] for k in ("top1", "top5", "macro_f1")}, indent=2),
+          "->", run_dir)
 
 
 if __name__ == "__main__":
