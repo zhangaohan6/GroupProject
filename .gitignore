@@ -1,0 +1,8 @@
+data/
+results/**/*.pt
+results/**/*.npy
+__pycache__/
+*.pyc
+video/*.mp4
+*.tar.gz
+.DS_Store
