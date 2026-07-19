@@ -49,7 +49,10 @@ def main():
     fmap = json.load(open(a.map))                       # filepath -> member name
     want = {v: k for k, v in fmap.items()}              # member name -> filepath (this archive filters itself)
 
-    if a.tar:
+    if a.tar == "-":
+        import sys
+        n = stream(sys.stdin.buffer, want, a.out, a.short)   # curl ... | python -m ... --tar -
+    elif a.tar:
         with open(a.tar, "rb") as fh:
             n = stream(fh, want, a.out, a.short)
     elif a.url:
