@@ -79,26 +79,19 @@
 - **E**:数据管线 + report 主笔 + video 统筹
 - (每人都要碰**方法+代码+video+report**,不能只做一样——Week 11 有匿名互评,贡献太少会被调分)
 
-## 9. 目录结构
+## 9. 目录结构(契约 §5)
 ```
 COMP9517-GroupProject/
-├─ PLAN.md              ← 本文件(单一事实来源)
-├─ README.md           ← 怎么跑
-├─ requirements.txt
-├─ docs/SPEC-SUMMARY.md ← 规格/评分要点摘录
-├─ data/               ← 采样后的子集(gitignore,不入库)
+├─ docs/  PROJECT_PLAN.md(总纲) · CONTRACTS.md(契约,以它为准) · M0_KICKOFF.md · SPEC-SUMMARY.md
 ├─ src/
-│  ├─ build_subset.py   ← 采样500类+40/10/10分割(固定seed)
-│  ├─ dataset.py        ← PyTorch Dataset/Dataloader
-│  ├─ traditional_bovw.py ← 传统:SIFT+KMeans词袋+SVM
-│  ├─ deep_cnn.py       ← 深度:从零 + 预训练微调 + 训练曲线
-│  ├─ evaluate.py       ← top-1/5、macro-F1、混淆矩阵、计时
-│  ├─ robustness.py     ← 【advanced②】退化鲁棒性曲线
-│  └─ gradcam.py        ← 【advanced①】Grad-CAM 可视化
-├─ results/            ← 图表/曲线/混淆矩阵输出
-├─ report/             ← CVPR LaTeX + PDF
-├─ video/              ← 录屏/剪辑
-└─ notebooks/          ← Colab 探索
+│  ├─ common/  io.py(load_image ndarray, set_seed) · manifest.py(读取+泄漏校验)
+│  ├─ data/    build_subset.py(采样+classes_500.json+manifests)          【A】
+│  ├─ eval/    evaluate.py · analysis.py(混淆矩阵/易混对) · aggregate.py 【A】
+│  ├─ methods/ base.py(Method基类+save_run) · deepnet.py(共享CNN)
+│  │           traditional/【B】 scratch/【C】 transfer/【D】
+│  └─ advanced/ robustness/(degradations+run)【E】 gradcam/【E】
+├─ results/(json,入库) · predictions/(npz,入库) · report/ · video/ · notebooks/
+└─ data/(不入库) images_256/ · manifests/ · classes_500.json · checkpoints/
 ```
 
 ## 10. 风险提醒
