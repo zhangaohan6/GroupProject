@@ -131,6 +131,39 @@ is the real bottleneck and that transfer, not capacity, drives the result. The 5
 confusion matrix and the hardest confused species pairs (Fig.~\ref{fig:conf}) put most of
 the off-diagonal mass on visually near-identical congeners.
 
+\emph{Augmentation.} Retraining the pretrained ResNet-50 with augmentation disabled but
+everything else fixed drops test top-1 from 0.684 to 0.651 and macro-F1 from 0.684 to
+0.651 (Table~\ref{tab:abl}). Without augmentation the model reaches near-perfect training
+accuracy even faster, so the roughly 3-point drop is the augmentation's regularisation
+value under the small per-class budget.
+
+\emph{Codebook size.} For the BoVW pipeline we sweep the visual vocabulary size $k$
+(Fig.~\ref{fig:codebook}). Accuracy is essentially flat from $k{=}128$ to $512$ and
+improves only slightly at $k{=}1024$ (top-1 0.029 to 0.035). A larger codebook helps a
+little but cannot lift the handcrafted pipeline off its low ceiling, which is consistent
+with SIFT histograms simply lacking the discriminative power for 500 fine-grained classes.
+
+\begin{table}[t]\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Ablation & top-1 & top-5 & macro-F1 & bal.\ acc \\
+\midrule
+Pretrained + aug (D)   & \textbf{0.684} & \textbf{0.861} & \textbf{0.684} & 0.684 \\
+Pretrained, no aug     & 0.651 & 0.840 & 0.651 & 0.651 \\
+\bottomrule
+\end{tabular}
+\caption{Augmentation ablation (pretrained ResNet-50, everything else matched).
+Removing augmentation costs about 3 top-1 points.}
+\label{tab:abl}
+\end{table}
+
+\begin{figure}[t]\centering
+\includegraphics[width=0.75\linewidth]{figures/codebook_k.png}
+\caption{BoVW top-1 and macro-F1 vs.\ codebook size $k$. Larger vocabularies help
+marginally; the pipeline stays near its low ceiling.}
+\label{fig:codebook}
+\end{figure}
+
 \begin{figure}[t]\centering
 \includegraphics[width=\linewidth]{figures/training_curves.png}
 \caption{Pretrained ResNet-50 training/validation loss and accuracy vs.\ epoch. The

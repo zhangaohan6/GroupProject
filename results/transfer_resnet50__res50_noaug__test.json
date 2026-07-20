@@ -1,0 +1,33 @@
+{
+  "run": "transfer_resnet50__res50_noaug__test",
+  "method": "transfer_resnet50",
+  "tag": "res50_noaug",
+  "split": "test",
+  "degradation": null,
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": true,
+    "img": 224,
+    "epochs": 12,
+    "lr": 0.001,
+    "bs": 64,
+    "augment": false
+  },
+  "metrics": {
+    "top1": 0.6512,
+    "top5": 0.8404,
+    "macro_precision": 0.6722191614337562,
+    "macro_recall": 0.6512,
+    "macro_f1": 0.6506399953680614,
+    "balanced_accuracy": 0.6512
+  },
+  "timing": {
+    "train_seconds": 6009.99932384491,
+    "predict_seconds": 37.40331411361694
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "882057d",
+  "timestamp": "2026-07-20T22:29:44+10:00"
+}
