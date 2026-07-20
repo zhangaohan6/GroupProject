@@ -1,0 +1,32 @@
+{
+  "run": "scratch_resnet50__res50_ft__brightness_s3__test",
+  "method": "scratch_resnet50",
+  "tag": "res50_ft",
+  "split": "test",
+  "degradation": {
+    "type": "brightness",
+    "severity": 3
+  },
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": false,
+    "img": 224
+  },
+  "metrics": {
+    "top1": 0.6328,
+    "top5": 0.8246,
+    "macro_precision": 0.6818851775944685,
+    "macro_recall": 0.6327999999999999,
+    "macro_f1": 0.6352247330917449,
+    "balanced_accuracy": 0.6327999999999999
+  },
+  "timing": {
+    "train_seconds": null,
+    "predict_seconds": null
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "e7795a6",
+  "timestamp": "2026-07-20T15:51:30+10:00"
+}

@@ -1,0 +1,32 @@
+{
+  "run": "scratch_resnet50__res50_ft__jpeg_s3__test",
+  "method": "scratch_resnet50",
+  "tag": "res50_ft",
+  "split": "test",
+  "degradation": {
+    "type": "jpeg",
+    "severity": 3
+  },
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": false,
+    "img": 224
+  },
+  "metrics": {
+    "top1": 0.5946,
+    "top5": 0.8078,
+    "macro_precision": 0.6457914210478398,
+    "macro_recall": 0.5946,
+    "macro_f1": 0.596833416022139,
+    "balanced_accuracy": 0.5946
+  },
+  "timing": {
+    "train_seconds": null,
+    "predict_seconds": null
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "e7795a6",
+  "timestamp": "2026-07-20T15:54:37+10:00"
+}

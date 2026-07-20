@@ -1,0 +1,32 @@
+{
+  "run": "scratch_resnet50__res50_ft__gaussian_blur_s2__test",
+  "method": "scratch_resnet50",
+  "tag": "res50_ft",
+  "split": "test",
+  "degradation": {
+    "type": "gaussian_blur",
+    "severity": 2
+  },
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": false,
+    "img": 224
+  },
+  "metrics": {
+    "top1": 0.2268,
+    "top5": 0.4062,
+    "macro_precision": 0.3744759740143736,
+    "macro_recall": 0.22679999999999997,
+    "macro_f1": 0.2252536903045102,
+    "balanced_accuracy": 0.22679999999999997
+  },
+  "timing": {
+    "train_seconds": null,
+    "predict_seconds": null
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "e7795a6",
+  "timestamp": "2026-07-20T15:43:24+10:00"
+}

@@ -1,0 +1,1 @@
+{"history": [{"epoch": 0, "train_loss": 5.810745034790039, "train_acc": 0.0172, "val_loss": 5.2477725296020505, "val_acc": 0.0362}, {"epoch": 1, "train_loss": 4.4922576446533204, "train_acc": 0.0915, "val_loss": 4.192325569915772, "val_acc": 0.1298}, {"epoch": 2, "train_loss": 3.2619997940063477, "train_acc": 0.2786, "val_loss": 3.1320440879821776, "val_acc": 0.296}]}

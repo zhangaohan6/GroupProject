@@ -1,0 +1,32 @@
+{
+  "run": "scratch_resnet50__res50_ft__motion_blur_s4__test",
+  "method": "scratch_resnet50",
+  "tag": "res50_ft",
+  "split": "test",
+  "degradation": {
+    "type": "motion_blur",
+    "severity": 4
+  },
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": false,
+    "img": 224
+  },
+  "metrics": {
+    "top1": 0.0612,
+    "top5": 0.1442,
+    "macro_precision": 0.09646092179217024,
+    "macro_recall": 0.061200000000000004,
+    "macro_f1": 0.050548968240736854,
+    "balanced_accuracy": 0.061200000000000004
+  },
+  "timing": {
+    "train_seconds": null,
+    "predict_seconds": null
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "e7795a6",
+  "timestamp": "2026-07-20T15:48:34+10:00"
+}

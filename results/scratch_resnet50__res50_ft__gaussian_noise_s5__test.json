@@ -1,0 +1,32 @@
+{
+  "run": "scratch_resnet50__res50_ft__gaussian_noise_s5__test",
+  "method": "scratch_resnet50",
+  "tag": "res50_ft",
+  "split": "test",
+  "degradation": {
+    "type": "gaussian_noise",
+    "severity": 5
+  },
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": false,
+    "img": 224
+  },
+  "metrics": {
+    "top1": 0.003,
+    "top5": 0.0144,
+    "macro_precision": 0.00011174751750665745,
+    "macro_recall": 0.0030000000000000005,
+    "macro_f1": 0.00016915410136327674,
+    "balanced_accuracy": 0.0030000000000000005
+  },
+  "timing": {
+    "train_seconds": null,
+    "predict_seconds": null
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "e7795a6",
+  "timestamp": "2026-07-20T15:42:07+10:00"
+}
