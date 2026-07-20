@@ -1,0 +1,33 @@
+{
+  "run": "transfer_resnet50__res50_ft__test",
+  "method": "transfer_resnet50",
+  "tag": "res50_ft",
+  "split": "test",
+  "degradation": null,
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": true,
+    "img": 224,
+    "epochs": 12,
+    "lr": 0.001,
+    "bs": 64,
+    "augment": true
+  },
+  "metrics": {
+    "top1": 0.6842,
+    "top5": 0.8608,
+    "macro_precision": 0.70574730171789,
+    "macro_recall": 0.6842,
+    "macro_f1": 0.6839367555174567,
+    "balanced_accuracy": 0.6842
+  },
+  "timing": {
+    "train_seconds": 5790.982991933823,
+    "predict_seconds": 36.514853954315186
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "b600201",
+  "timestamp": "2026-07-20T15:37:03+10:00"
+}
