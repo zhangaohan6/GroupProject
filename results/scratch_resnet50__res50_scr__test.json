@@ -1,0 +1,33 @@
+{
+  "run": "scratch_resnet50__res50_scr__test",
+  "method": "scratch_resnet50",
+  "tag": "res50_scr",
+  "split": "test",
+  "degradation": null,
+  "config": {
+    "backbone": "resnet50",
+    "pretrained": false,
+    "img": 224,
+    "epochs": 20,
+    "lr": 0.001,
+    "bs": 64,
+    "augment": true
+  },
+  "metrics": {
+    "top1": 0.2582,
+    "top5": 0.5138,
+    "macro_precision": 0.24825046550419416,
+    "macro_recall": 0.2582,
+    "macro_f1": 0.24460148078784177,
+    "balanced_accuracy": 0.2582
+  },
+  "timing": {
+    "train_seconds": 9855.175461292267,
+    "predict_seconds": 37.731900215148926
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "5f5b10a",
+  "timestamp": "2026-07-20T18:40:53+10:00"
+}
