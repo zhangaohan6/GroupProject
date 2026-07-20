@@ -121,9 +121,27 @@ so 0.029 is above chance but unusable).}
 
 \subsection{Ablations}
 We vary one factor at a time: (a) transfer (scratch vs.\ pretrained, Table~\ref{tab:main});
-(b) augmentation on/off; (c) codebook size $k$ for BoVW. We include training curves
-(loss/accuracy vs.\ epoch), the 500-class confusion matrix, and the hardest confused
-species pairs (visually near-identical congeners dominate the off-diagonal mass).
+(b) augmentation on/off; (c) codebook size $k$ for BoVW. The pretrained training curves
+(Fig.~\ref{fig:curves}) show a wide train/val gap --- train accuracy saturates near
+1.0 while validation plateaus at 0.68 by epoch~8 --- i.e.\ the 40-image/class budget
+overfits quickly and transfer, not capacity, drives the result. The 500-class confusion
+matrix and the hardest confused species pairs (Fig.~\ref{fig:conf}) show off-diagonal
+mass concentrated on visually near-identical congeners.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/training_curves.png}
+\caption{Pretrained ResNet-50 training/validation loss and accuracy vs.\ epoch. The
+growing train--val gap indicates overfitting under the 40-image/class budget.}
+\label{fig:curves}
+\end{figure}
+
+\begin{figure}[t]\centering
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{figures/confusion_matrix.png}\end{subfigure}
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{figures/hardest_pairs.png}\end{subfigure}
+\caption{Left: row-normalised 500-class confusion matrix (pretrained model). Right:
+top-15 hardest confused ordered class pairs; near-identical congeners dominate.}
+\label{fig:conf}
+\end{figure}
 
 \subsection{Advanced study I: Test-time degradation robustness}\label{sec:robust}
 Keeping the pretrained model \emph{fixed} (no retraining), we degrade \emph{only} the
@@ -148,10 +166,18 @@ Motion blur     & 0.347 & 0.167 & 0.091 & 0.061 & 0.031 \\
 \end{tabular}
 \caption{Top-1 accuracy of the fixed pretrained ResNet-50 vs.\ corruption severity
 (clean top-1 = 0.684). Blur is the dominant failure mode; JPEG is benign.
-Per-corruption top-1 \emph{and} macro-F1 vs.\ severity curves are plotted in the
-accompanying figure.}
+Per-corruption top-1 \emph{and} macro-F1 vs.\ severity curves are plotted in
+Fig.~\ref{fig:robust}.}
 \label{tab:robust}
 \end{table}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/robustness_curves.png}
+\caption{Top-1 (left) and macro-F1 (right) vs.\ corruption severity for the fixed
+pretrained model. Motion/Gaussian blur degrade fastest; brightness and JPEG are the
+most tolerated. Severity 0 is the clean baseline.}
+\label{fig:robust}
+\end{figure}
 
 \subsection{Advanced study II: Grad-CAM explainability}\label{sec:cam}
 Figure~\ref{fig:gradcam} shows Grad-CAM saliency for the fixed pretrained model.
