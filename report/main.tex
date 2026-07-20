@@ -24,40 +24,39 @@ Traditional and Deep Pipelines with a Robustness and Explainability Study}
 
 \begin{abstract}
 We study fine-grained visual classification on a 500-class subset of
-iNaturalist-2021 (40 train / 10 test images per class, fixed seed~42), comparing a
+iNaturalist-2021 (40 train / 10 test images per class, fixed seed~42). We compare a
 traditional Bag-of-Visual-Words (BoVW) SIFT + linear-SVM pipeline against
 convolutional networks trained from scratch and fine-tuned from ImageNet-pretrained
 weights. The handcrafted pipeline reaches only \textbf{2.9\%} top-1 (macro-F1 0.02),
-confirming that local-descriptor histograms cannot separate 500 visually similar
-species; an ImageNet-pretrained ResNet-50 fine-tuned for 12 epochs reaches
-\textbf{68.4\%} top-1, \textbf{86.1\%} top-5 and \textbf{0.684} macro-F1 --- a
-$23\times$ macro-F1 gain --- while the same architecture trained from scratch reaches
-only \textbf{25.8\%} top-1 (macro-F1 0.245), isolating the contribution of transferred
-features: pretraining alone accounts for a $+42.6$-point top-1 jump. We then run
-two advanced studies on the fixed pretrained model: (i) a test-time degradation
-robustness sweep over five corruption types $\times$ five severities, showing the model
-is most fragile to blur (Gaussian-blur top-1 collapses $0.68\!\to\!0.08$ by severity~3)
-and most tolerant to JPEG compression; and (ii) a Grad-CAM analysis showing correct
-predictions localise on the organism whereas errors attend to background context.
+which confirms that local-descriptor histograms cannot separate 500 visually similar
+species. An ImageNet-pretrained ResNet-50 fine-tuned for 12 epochs reaches
+\textbf{68.4\%} top-1, \textbf{86.1\%} top-5 and \textbf{0.684} macro-F1. The same
+architecture trained from scratch reaches only \textbf{25.8\%} top-1 (macro-F1 0.245),
+so pretraining alone accounts for a $+42.6$-point top-1 gap. We then run
+two advanced studies on the fixed pretrained model. First, a test-time degradation
+robustness sweep over five corruption types and five severities shows the model
+is most fragile to blur (Gaussian-blur top-1 falls from 0.68 to 0.08 by severity~3)
+and most tolerant to JPEG compression. Second, a Grad-CAM analysis shows correct
+predictions localise on the organism, whereas errors attend to background context.
 \end{abstract}
 
 %--------------------------------------------------------------------------------
 \section{Introduction}\label{sec:intro}
 % [rubric 1pt]
-Automated species recognition underpins biodiversity monitoring, citizen-science
-platforms and ecological surveying at a scale no expert workforce can match.
-iNaturalist-2021 is a canonical benchmark for the hardest form of this problem,
-\emph{fine-grained} classification: classes are individual species with high
+Automated species recognition supports biodiversity monitoring, citizen-science
+platforms and ecological surveying at a scale that expert labelling cannot reach.
+iNaturalist-2021 is a standard benchmark for the harder version of this problem,
+\emph{fine-grained} classification, where classes are individual species with high
 intra-class variation (pose, lighting, life stage, background) and low inter-class
-variation (near-identical congeners), on top of a heavy long tail. We restrict the
+variation between near-identical congeners, on top of a heavy long tail. We restrict the
 graded evaluation to a fixed random 500-class subset (seed 42) with a balanced
 40/10 train/test split drawn from the official \texttt{train\_mini} and \texttt{val}
-splits, and report the exact class list and counts for reproducibility.
+splits, and we report the exact class list and counts so the split can be reproduced.
 Our contributions are: (1) a like-for-like comparison of a classical BoVW-SIFT+SVM
 pipeline against from-scratch and ImageNet-pretrained ResNet-50 under an identical
-data protocol; (2) controlled ablations isolating transfer, architecture and
-augmentation; and (3) two advanced studies --- a test-time corruption-robustness
-sweep and a Grad-CAM explainability analysis --- on the fixed best model.
+data protocol; (2) controlled ablations that isolate transfer, architecture and
+augmentation; and (3) two advanced studies on the fixed best model, namely a
+test-time corruption-robustness sweep and a Grad-CAM explainability analysis.
 
 \section{Literature Review}\label{sec:lit}
 % [rubric 2pt]
@@ -101,8 +100,9 @@ train/test wall-clock time on Apple-silicon MPS.
 
 \subsection{Main comparison}
 Table~\ref{tab:main} summarises the headline comparison. Transfer learning improves
-macro-F1 by roughly $23\times$ over the handcrafted baseline; from-scratch training is
-reported to quantify how much of that gap is architecture vs.\ transferred features.
+macro-F1 by roughly $23\times$ over the handcrafted baseline. We report the from-scratch
+run so that we can separate how much of that gap comes from the architecture and how
+much comes from the transferred ImageNet features.
 
 \begin{table}[t]\centering\small
 \begin{tabular}{lcccc}
@@ -114,20 +114,22 @@ ResNet-50 scratch (C)        & 0.258 & 0.514 & 0.245 & 0.258 \\
 ResNet-50 pretrained (D)     & \textbf{0.684} & \textbf{0.861} & \textbf{0.684} & 0.684 \\
 \bottomrule
 \end{tabular}
-\caption{Main comparison on the 500-class test split. Pretrained fine-tuning wins
-decisively; the handcrafted pipeline is near chance ($1/500{=}0.002$ top-1 chance,
-so 0.029 is above chance but unusable).}
+\caption{Main comparison on the 500-class test split. Pretrained fine-tuning is well
+ahead of the other two. The handcrafted pipeline is only just above the $1/500{=}0.002$
+chance level, so its 0.029 top-1 is measurable but not usable.}
 \label{tab:main}
 \end{table}
 
 \subsection{Ablations}
 We vary one factor at a time: (a) transfer (scratch vs.\ pretrained, Table~\ref{tab:main});
 (b) augmentation on/off; (c) codebook size $k$ for BoVW. The pretrained training curves
-(Fig.~\ref{fig:curves}) show a wide train/val gap --- train accuracy saturates near
-1.0 while validation plateaus at 0.68 by epoch~8 --- i.e.\ the 40-image/class budget
-overfits quickly and transfer, not capacity, drives the result. The 500-class confusion
-matrix and the hardest confused species pairs (Fig.~\ref{fig:conf}) show off-diagonal
-mass concentrated on visually near-identical congeners.
+(Fig.~\ref{fig:curves}) show a wide train/val gap: train accuracy saturates near
+1.0 while validation plateaus at 0.68 by epoch~8. We initially expected the scratch
+model to keep closing this gap given more epochs, but its validation accuracy flattened
+around 0.27 by epoch~19 (Fig.~\ref{fig:curves}), which suggests the 40-image/class budget
+is the real bottleneck and that transfer, not capacity, drives the result. The 500-class
+confusion matrix and the hardest confused species pairs (Fig.~\ref{fig:conf}) put most of
+the off-diagonal mass on visually near-identical congeners.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\linewidth]{figures/training_curves.png}
@@ -148,10 +150,11 @@ top-15 hardest confused ordered class pairs; near-identical congeners dominate.}
 Keeping the pretrained model \emph{fixed} (no retraining), we degrade \emph{only} the
 test set with five corruption families at five severities each
 (Table~\ref{tab:robust}). Clean top-1 is 0.684. The model is most fragile to
-\textbf{Gaussian blur} and \textbf{motion blur} --- blur destroys the fine texture cues
-fine-grained recognition depends on, so top-1 collapses below 0.10 by severity~3 ---
-and most tolerant to \textbf{JPEG} and mild \textbf{brightness} shifts, which preserve
-global shape. This exposes a deployment risk: field imagery is often motion-blurred.
+\textbf{Gaussian blur} and \textbf{motion blur}. Blur removes the fine texture cues that
+fine-grained recognition depends on, so top-1 drops below 0.10 by severity~3. It is far
+more tolerant to \textbf{JPEG} and mild \textbf{brightness} shifts, which preserve
+global shape. The motion-blur result matters in practice, since field and phone imagery
+is frequently motion-blurred.
 
 \begin{table}[t]\centering\small
 \begin{tabular}{lccccc}
@@ -183,10 +186,10 @@ most tolerated. Severity 0 is the clean baseline.}
 \subsection{Advanced study II: Grad-CAM explainability}\label{sec:cam}
 Figure~\ref{fig:gradcam} shows Grad-CAM saliency for the fixed pretrained model.
 On correctly classified images the activation concentrates on the organism (body,
-distinctive markings); on errors it drifts to background context (foliage, water),
-and on confusable pairs the map highlights the shared coarse silhouette rather than the
-discriminating part. This is consistent with the blur-fragility above: the model relies
-on localised high-frequency organism detail, exactly what blur removes.
+distinctive markings). On errors it tends to drift to background context such as foliage
+or water, and on confusable pairs the map highlights the shared coarse silhouette rather
+than the discriminating part. This lines up with the blur results above: the model leans
+on localised high-frequency organism detail, which is exactly what blur removes.
 
 \begin{figure}[t]\centering
 \includegraphics[width=0.95\linewidth]{figures/gradcam.png}
@@ -198,22 +201,22 @@ organism; failures attend to background.}
 \section{Discussion}\label{sec:disc}
 % [rubric 1pt]
 The pretrained CNN wins because ImageNet features already encode the mid-level texture
-and shape primitives that separate species, which 40 images/class is far too few to
-learn from scratch --- and which a fixed SIFT vocabulary cannot represent at all.
-Failure cases cluster on near-identical congeners and on images where the organism is
-small relative to background. The robustness sweep and Grad-CAM tell one story: the
-model's discriminative signal is localised organism texture, so it is accurate on clean
-images but brittle under blur.
+and shape primitives that separate species. With only 40 images per class the scratch
+model cannot learn these primitives, and a fixed SIFT vocabulary cannot represent them
+at all. Failure cases cluster on near-identical congeners and on images where the organism
+is small relative to the background. Taken together, the robustness sweep and the Grad-CAM
+maps point at the same thing: the model's discriminative signal is localised organism
+texture, so it is accurate on clean images but brittle under blur.
 
 \section{Conclusion}\label{sec:conc}
 % [rubric 1pt]
-Transfer learning is decisive for 500-class fine-grained recognition: the pretrained
-ResNet-50 reaches 68.4\% top-1 versus 25.8\% for the identical architecture trained from
-scratch and 2.9\% for BoVW --- a $+42.6$-point top-1 gap attributable purely to
-ImageNet pretraining, since architecture, augmentation and optimiser are matched. The
-resulting model is nonetheless fragile to blur and background-dependent on hard cases.
-Future work: fine-grained part attention, blur-augmented training, and long-tail
-rebalancing.
+Transfer learning is the deciding factor for 500-class fine-grained recognition. The
+pretrained ResNet-50 reaches 68.4\% top-1, against 25.8\% for the identical architecture
+trained from scratch and 2.9\% for BoVW. Because architecture, augmentation and optimiser
+are matched between the two deep runs, the $+42.6$-point top-1 gap is attributable to the
+ImageNet pretraining alone. The resulting model is still fragile to blur and depends on
+background on the hard cases. For future work we would try fine-grained part attention,
+blur-augmented training, and long-tail rebalancing.
 
 {\small\bibliographystyle{ieeenat_fullname}\bibliography{refs}}
 \end{document}
