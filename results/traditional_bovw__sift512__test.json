@@ -1,0 +1,31 @@
+{
+  "run": "traditional_bovw__sift512__test",
+  "method": "traditional_bovw",
+  "tag": "sift512",
+  "split": "test",
+  "degradation": null,
+  "config": {
+    "features": "SIFT",
+    "codebook": 512,
+    "classifier": "LinearSVC",
+    "proba": "softmax(decision_function)",
+    "n_jobs": 6
+  },
+  "metrics": {
+    "top1": 0.0292,
+    "top5": 0.0802,
+    "macro_precision": 0.030004894668664833,
+    "macro_recall": 0.029200000000000004,
+    "macro_f1": 0.01999545930303572,
+    "balanced_accuracy": 0.029200000000000004
+  },
+  "timing": {
+    "train_seconds": 116.00773286819458,
+    "predict_seconds": 14.605589151382446
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "b72d668",
+  "timestamp": "2026-07-20T13:05:44+10:00"
+}
