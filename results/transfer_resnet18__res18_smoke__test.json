@@ -1,0 +1,33 @@
+{
+  "run": "transfer_resnet18__res18_smoke__test",
+  "method": "transfer_resnet18",
+  "tag": "res18_smoke",
+  "split": "test",
+  "degradation": null,
+  "config": {
+    "backbone": "resnet18",
+    "pretrained": true,
+    "img": 224,
+    "epochs": 3,
+    "lr": 0.001,
+    "bs": 64,
+    "augment": true
+  },
+  "metrics": {
+    "top1": 0.2968,
+    "top5": 0.581,
+    "macro_precision": 0.3150402596520179,
+    "macro_recall": 0.2968,
+    "macro_f1": 0.26626264357506263,
+    "balanced_accuracy": 0.2968
+  },
+  "timing": {
+    "train_seconds": 571.890438079834,
+    "predict_seconds": 15.559465169906616
+  },
+  "n_samples": 5000,
+  "n_classes": 500,
+  "seed": 42,
+  "git_commit": "b0742ed",
+  "timestamp": "2026-07-20T11:00:37+10:00"
+}
