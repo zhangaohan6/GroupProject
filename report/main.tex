@@ -32,7 +32,8 @@ confirming that local-descriptor histograms cannot separate 500 visually similar
 species; an ImageNet-pretrained ResNet-50 fine-tuned for 12 epochs reaches
 \textbf{68.4\%} top-1, \textbf{86.1\%} top-5 and \textbf{0.684} macro-F1 --- a
 $23\times$ macro-F1 gain --- while the same architecture trained from scratch reaches
-\scratchTODO{}~top-1, isolating the contribution of transferred features. We then run
+only \textbf{25.8\%} top-1 (macro-F1 0.245), isolating the contribution of transferred
+features: pretraining alone accounts for a $+42.6$-point top-1 jump. We then run
 two advanced studies on the fixed pretrained model: (i) a test-time degradation
 robustness sweep over five corruption types $\times$ five severities, showing the model
 is most fragile to blur (Gaussian-blur top-1 collapses $0.68\!\to\!0.08$ by severity~3)
@@ -109,7 +110,7 @@ reported to quantify how much of that gap is architecture vs.\ transferred featu
 Method & top-1 & top-5 & macro-F1 & bal.\ acc \\
 \midrule
 BoVW-SIFT + SVM (B)          & 0.029 & 0.080 & 0.020 & 0.029 \\
-ResNet-50 scratch (C)        & \scratchTODO & \scratchTODO & \scratchTODO & \scratchTODO \\
+ResNet-50 scratch (C)        & 0.258 & 0.514 & 0.245 & 0.258 \\
 ResNet-50 pretrained (D)     & \textbf{0.684} & \textbf{0.861} & \textbf{0.684} & 0.684 \\
 \bottomrule
 \end{tabular}
@@ -206,11 +207,13 @@ images but brittle under blur.
 
 \section{Conclusion}\label{sec:conc}
 % [rubric 1pt]
-Transfer learning is decisive for 500-class fine-grained recognition (68.4\% top-1 vs.\
-2.9\% for BoVW), but the resulting model is fragile to blur and background-dependent on
-hard cases. Future work: fine-grained part attention, blur-augmented training, and
-long-tail rebalancing. \emph{From-scratch numbers to be finalised once training
-completes.}
+Transfer learning is decisive for 500-class fine-grained recognition: the pretrained
+ResNet-50 reaches 68.4\% top-1 versus 25.8\% for the identical architecture trained from
+scratch and 2.9\% for BoVW --- a $+42.6$-point top-1 gap attributable purely to
+ImageNet pretraining, since architecture, augmentation and optimiser are matched. The
+resulting model is nonetheless fragile to blur and background-dependent on hard cases.
+Future work: fine-grained part attention, blur-augmented training, and long-tail
+rebalancing.
 
 {\small\bibliographystyle{ieeenat_fullname}\bibliography{refs}}
 \end{document}
